@@ -160,7 +160,9 @@ export class VoiceGenerator {
         // read Tuplets
         const tupletElements: IXmlElement[] = notationNode.elements("tuplet");
         if (tupletElements.length > 0) {
-          this.openTupletNumber = this.addTuplet(noteNode, tupletElements);
+          // MuseScore hides a tuplet (number and bracket) by writing it in a <notations print-object="no">
+          const hiddenByNotations: boolean = notationNode.attribute("print-object")?.value === "no";
+          this.openTupletNumber = this.addTuplet(noteNode, tupletElements, hiddenByNotations);
           hasTupletCommand = true;
         }
         // check for Arpeggios
@@ -694,7 +696,7 @@ export class VoiceGenerator {
    * @param tupletNodeList
    * @returns {number}
    */
-  private addTuplet(node: IXmlElement, tupletNodeList: IXmlElement[]): number {
+  private addTuplet(node: IXmlElement, tupletNodeList: IXmlElement[], hiddenByNotations: boolean = false): number {
     let bracketed: boolean = false; // true if bracket=yes given, otherwise false
     let bracketedXmlValue: boolean = undefined; // Exact xml bracket value given: true for bracket=yes, false for bracket=no, undefined if not given.
     // TODO refactor this to not duplicate lots of code for the cases tupletNodeList.length == 1 and > 1
@@ -740,10 +742,10 @@ export class VoiceGenerator {
               }
             }
 
-            const tuplet: Tuplet = new Tuplet(tupletLabelNumber, bracketed);
+            const tuplet: Tuplet = new Tuplet(tupletLabelNumber, bracketed && !hiddenByNotations);
             tuplet.Ratioed = ratioed;
-            tuplet.BracketedXmlValue = bracketedXmlValue;
-            tuplet.ShowNumberNoneGivenInXml = showNumberNoneGiven;
+            tuplet.BracketedXmlValue = hiddenByNotations ? false : bracketedXmlValue;
+            tuplet.ShowNumberNoneGivenInXml = showNumberNoneGiven || hiddenByNotations;
             //Default to above
             tuplet.tupletLabelNumberPlacement = PlacementEnum.Above;
             //If we ever encounter a placement attribute for this tuplet, should override.
@@ -868,10 +870,10 @@ export class VoiceGenerator {
           }
           let tuplet: Tuplet = this.tupletDict[tupletnumber];
           if (!tuplet) {
-            tuplet = this.tupletDict[tupletnumber] = new Tuplet(tupletLabelNumber, bracketed);
+            tuplet = this.tupletDict[tupletnumber] = new Tuplet(tupletLabelNumber, bracketed && !hiddenByNotations);
             tuplet.Ratioed = ratioed;
-            tuplet.BracketedXmlValue = bracketedXmlValue;
-            tuplet.ShowNumberNoneGivenInXml = showNumberNoneGiven;
+            tuplet.BracketedXmlValue = hiddenByNotations ? false : bracketedXmlValue;
+            tuplet.ShowNumberNoneGivenInXml = showNumberNoneGiven || hiddenByNotations;
             //Default to above
             tuplet.tupletLabelNumberPlacement = PlacementEnum.Above;
           }
