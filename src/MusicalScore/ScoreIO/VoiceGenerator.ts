@@ -66,7 +66,9 @@ export class VoiceGenerator {
   // private lastBeamTag: string = "";
   private openBeams: Beam[] = []; // works like a stack, with push and pop
   private beamNumberOffset: number = 0;
-  private get openTieDict(): { [_: number]: Tie } { return this.staff.openTieDict; }
+  /** The open ties of the staff the current note sits on. A voice can cross staves (its generator keeps the staff
+   *  it was first met on), and a tie is closed by the same pitch on the same staff, in any voice. */
+  private get openTieDict(): { [_: number]: Tie } { return (this.currentStaffEntry?.ParentStaff ?? this.staff).openTieDict; }
   private currentOctaveShift: number = 0;
   private tupletDict: { [_: number]: Tuplet } = {};
   private openTupletNumber: number = 0;
@@ -294,7 +296,7 @@ export class VoiceGenerator {
 
   /** Check/delete open ties that don't exceed measure duration. Currently unused as it's incorrect, see below. */
   public checkOpenTies(): void {
-    const openTieDict: { [key: number]: Tie } = this.openTieDict;
+    const openTieDict: { [key: number]: Tie } = this.staff.openTieDict;
     for (const key in openTieDict) {
       if (openTieDict.hasOwnProperty(key)) {
         const tie: Tie = openTieDict[key];
