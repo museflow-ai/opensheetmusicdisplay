@@ -1046,6 +1046,17 @@ export class VoiceGenerator {
               tie.NoteIndexToTieDirection[tie.Notes.length - 1] = placement;
             }
           }
+        } else {
+          // The tie it stops is not open here (it comes from before this file, e.g. a score cut into lines, or its
+          // start was dropped): the note still starts the tie it writes, so the next note can stop it.
+          const startNode: IXmlElement = tieNodeList.find((tieNode) => tieNode.attribute("type")?.value === "start");
+          if (startNode) {
+            const newTieNumber: number = this.getNextAvailableNumberForTie();
+            const tie: Tie = new Tie(this.currentNote, tieType);
+            this.openTieDict[newTieNumber] = tie;
+            tie.TieNumber = newTieNumber;
+            tie.TieDirection = this.getTieDirection(startNode);
+          }
         }
       }
     }
