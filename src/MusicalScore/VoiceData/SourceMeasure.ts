@@ -440,7 +440,12 @@ export class SourceMeasure {
             for (let j: number = 0; j < musicSheet.Instruments[i].Staves.length; j++) {
                 const lastStaffEntry: SourceStaffEntry = this.getLastSourceStaffEntryForInstrument(inSourceMeasureInstrumentIndex + j);
                 if (lastStaffEntry !== undefined && lastStaffEntry.Timestamp) {
-                    const lastStaffEntryDuration: Fraction = lastStaffEntry.calculateMaxNoteLength(false);
+                    // Grace notes after the bar's last note (MuseScore's "grace notes after") take no time of their own:
+                    //   a staff entry holding only grace notes must not lengthen the bar by their written value.
+                    const onlyGraceNotes: boolean = lastStaffEntry.VoiceEntries.length > 0 &&
+                        lastStaffEntry.VoiceEntries.every((voiceEntry: VoiceEntry) => voiceEntry.IsGrace);
+                    const lastStaffEntryDuration: Fraction = onlyGraceNotes ?
+                        new Fraction(0, 1) : lastStaffEntry.calculateMaxNoteLength(false);
                     // untilEndOfTie = false: don't set measure duration until end of tie, which could be in next measure!
                     if (instrumentDuration.lt(Fraction.plus(lastStaffEntry.Timestamp, lastStaffEntryDuration))) {
                         instrumentDuration = Fraction.plus(lastStaffEntry.Timestamp, lastStaffEntryDuration);
