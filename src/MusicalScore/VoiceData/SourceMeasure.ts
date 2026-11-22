@@ -5,6 +5,7 @@ import {RepetitionInstruction, RepetitionInstructionEnum, AlignmentType} from ".
 import {Staff} from "./Staff";
 import {VoiceEntry} from "./VoiceEntry";
 import {Voice} from "./Voice";
+import {Note} from "./Note";
 import {MusicSheet} from "../MusicSheet";
 import {MultiExpression} from "./Expressions/MultiExpression";
 import {MultiTempoExpression} from "./Expressions/MultiTempoExpression";
@@ -432,6 +433,14 @@ export class SourceMeasure {
      * @param instrumentMaxTieNoteFractions
      * @returns {Fraction[]}
      */
+    /** The longest note of a staff entry, leaving out its grace notes (not until the end of a tie). */
+    private static lengthWithoutGraceNotes(staffEntry: SourceStaffEntry): Fraction {
+        return staffEntry.VoiceEntries
+            .filter((voiceEntry: VoiceEntry) => !voiceEntry.IsGrace)
+            .flatMap((voiceEntry: VoiceEntry) => voiceEntry.Notes)
+            .reduce((longest: Fraction, note: Note) => (longest.lt(note.Length) ? note.Length : longest), new Fraction(0, 1));
+    }
+
     public calculateInstrumentsDuration(musicSheet: MusicSheet, instrumentMaxTieNoteFractions: Fraction[]): Fraction[] {
         const instrumentsDurations: Fraction[] = [];
         for (let i: number = 0; i < musicSheet.Instruments.length; i++) {
@@ -440,12 +449,10 @@ export class SourceMeasure {
             for (let j: number = 0; j < musicSheet.Instruments[i].Staves.length; j++) {
                 const lastStaffEntry: SourceStaffEntry = this.getLastSourceStaffEntryForInstrument(inSourceMeasureInstrumentIndex + j);
                 if (lastStaffEntry !== undefined && lastStaffEntry.Timestamp) {
-                    // Grace notes after the bar's last note (MuseScore's "grace notes after") take no time of their own:
-                    //   a staff entry holding only grace notes must not lengthen the bar by their written value.
-                    const onlyGraceNotes: boolean = lastStaffEntry.VoiceEntries.length > 0 &&
-                        lastStaffEntry.VoiceEntries.every((voiceEntry: VoiceEntry) => voiceEntry.IsGrace);
-                    const lastStaffEntryDuration: Fraction = onlyGraceNotes ?
-                        new Fraction(0, 1) : lastStaffEntry.calculateMaxNoteLength(false);
+                    // Grace notes take no time of their own: neither grace notes after the bar's last note
+                    //   (MuseScore's "grace notes after") nor a grace note before a last note shorter than it
+                    //   may lengthen the bar by their written value.
+                    const lastStaffEntryDuration: Fraction = SourceMeasure.lengthWithoutGraceNotes(lastStaffEntry);
                     // untilEndOfTie = false: don't set measure duration until end of tie, which could be in next measure!
                     if (instrumentDuration.lt(Fraction.plus(lastStaffEntry.Timestamp, lastStaffEntryDuration))) {
                         instrumentDuration = Fraction.plus(lastStaffEntry.Timestamp, lastStaffEntryDuration);
