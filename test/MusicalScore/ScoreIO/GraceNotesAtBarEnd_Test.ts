@@ -32,6 +32,17 @@ const GRACE_NOTES_BEFORE: string = score(`<measure number="1">${ATTRIBUTES}
   ${note("C", 8, "quarter")}${grace("F")}${grace("E")}${note("D", 8, "quarter")}${note("E", 16, "half")}
 </measure><measure number="2">${note("D", 32, "whole")}</measure>`);
 
+/**
+ * A bar whose last note is a 32nd with a grace eighth before it (Boulanger's "Je garde une médaille", bar 8: a hidden
+ * rest, then a grace note and a cue note in the bar's last 32nd). The grace note's written eighth is longer than the
+ * note it leads into.
+ */
+const GRACE_BEFORE_A_SHORT_LAST_NOTE: string = score(`<measure number="1">${ATTRIBUTES}
+  <note print-object="no"><rest/><duration>31</duration><voice>1</voice><type>half</type><dot/><dot/><dot/><dot/></note>
+  <note><grace slash="yes"/><pitch><step>B</step><octave>4</octave></pitch><voice>1</voice><type>eighth</type></note>
+  ${note("B", 1, "32nd")}
+</measure><measure number="2">${note("D", 32, "whole")}</measure>`);
+
 function load(xml: string): Promise<SourceMeasure[]> {
     const div: HTMLElement = TestUtils.getDivElement(document);
     const osmd: OpenSheetMusicDisplay = new OpenSheetMusicDisplay(div, { autoResize: false, backend: "svg" });
@@ -58,6 +69,13 @@ describe("Grace notes at the end of a bar", () => {
                 .filter((voiceEntry) => voiceEntry.IsGrace)
                 .reduce((count, voiceEntry) => count + voiceEntry.Notes.length, 0);
             chai.expect(graceEntries).to.equal(2);
+        });
+    });
+
+    it("before a last note shorter than they are do not lengthen the bar", () => {
+        return load(GRACE_BEFORE_A_SHORT_LAST_NOTE).then((measures: SourceMeasure[]) => {
+            chai.expect(measures[0].Duration.RealValue).to.equal(1);
+            chai.expect(measures[1].AbsoluteTimestamp.RealValue).to.equal(1);
         });
     });
 
