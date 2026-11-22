@@ -12,11 +12,17 @@ export class RepetitionInstructionReader {
   public xmlMeasureList: IXmlElement[][];
   private musicSheet: MusicSheet;
   private currentMeasureIndex: number;
+  /** The number attributes of the open endings whose start the file hides (print-object="no"), and of those it shows.
+   *  An ending only hidden has its stop hidden too (Finale writes a shown start and a hidden copy of it, #1367). */
+  private hiddenEndingNumbers: Set<string> = new Set<string>();
+  private shownEndingNumbers: Set<string> = new Set<string>();
 
   public set MusicSheet(value: MusicSheet) {
     this.musicSheet = value;
     this.xmlMeasureList = new Array(this.musicSheet.Instruments.length);
     this.repetitionInstructions = [];
+    this.hiddenEndingNumbers = new Set<string>();
+    this.shownEndingNumbers = new Set<string>();
   }
 
   /**
@@ -60,40 +66,40 @@ export class RepetitionInstructionReader {
           direction = childNode.attribute("direction").value;
         } else if ( "ending" === childNode.name && childNode.hasAttributes &&
                     childNode.attribute("type") !== undefined && childNode.attribute("number")) {
+          const endingNumber: string = childNode.attribute("number").value;
           if (childNode.attribute("print-object")?.value === "no") {
+            if (childNode.attribute("type").value === "start") {
+              this.hiddenEndingNumbers.add(endingNumber);
+            }
             continue;
             // Finale only puts print-object="no" at the (duplicated) <ending> node at thestart of measure barline,
             //   making this uneffective. Unclear whether the intention is to render the volta or not. (See #1367)
           }
-          type = childNode.attribute("type").value;
-          let num: string = childNode.attribute("number").value;
-          if (childNode.value) {
-            num = childNode.value;
-            // MusicXML spec: "The element text is used when the text displayed in the ending is different than what appears in the number attribute."
-            //   Finale v27.3 accordingly seems to put the desired printed number here instead of in "number" (#1367)
-          }
-
-          // Parse the given ending indices:
-          // handle cases like: "1, 2" or "1 + 2" or even "1 - 3, 6"
-          const separatedEndingIndices: string[] = num.split("[,+]");
-          for (let idx2: number = 0, len2: number = separatedEndingIndices.length; idx2 < len2; ++idx2) {
-            const separatedEndingIndex: string = separatedEndingIndices[idx2];
-            const indices: string[] = separatedEndingIndex.match("[0-9]");
-
-            // check if possibly something like "1-3" is given..
-            if (separatedEndingIndex.search("-") !== -1 && indices.length === 2) {
-              const startIndex: number = parseInt(indices[0], 10);
-              const endIndex: number = parseInt(indices[1], 10);
-              for (let index: number = startIndex; index <= endIndex; index++) {
-                endingIndices.push(index);
-              }
-            } else {
-              for (let idx3: number = 0, len3: number = indices.length; idx3 < len3; ++idx3) {
-                const index: string = indices[idx3];
-                endingIndices.push(parseInt(index, 10));
-              }
+          if (childNode.attribute("type").value === "start") {
+            this.shownEndingNumbers.add(endingNumber);
+          } else {
+            const onlyHidden: boolean = this.hiddenEndingNumbers.has(endingNumber) && !this.shownEndingNumbers.has(endingNumber);
+            this.hiddenEndingNumbers.delete(endingNumber);
+            this.shownEndingNumbers.delete(endingNumber);
+            if (onlyHidden) {
+              // the end of an ending the file hides: drawn on its own it would be a stray closing hook
+              continue;
             }
           }
+          type = childNode.attribute("type").value;
+          // The number attribute says on which passes the ending is played, e.g. "1, 2, 3, 4, 5".
+          //   MusicXML spec: "The element text is used when the text displayed in the ending is different than what appears in the number attribute."
+          //   Finale v27.3 puts the printed number in the text instead of in "number" (number="1" for a "2", #1367): the text's numbers
+          //   are used when they share none with the attribute's.
+          let numbers: number[] = RepetitionInstructionReader.readEndingNumbers(childNode.attribute("number").value);
+          const text: string = childNode.value ? childNode.value.trim() : "";
+          if (text) {
+            const textNumbers: number[] = RepetitionInstructionReader.readEndingNumbers(text);
+            if (textNumbers.length > 0 && !textNumbers.some((textNumber: number): boolean => numbers.includes(textNumber))) {
+              numbers = textNumbers;
+            }
+          }
+          endingIndices.push(...numbers);
         }
       }
 
@@ -127,6 +133,24 @@ export class RepetitionInstructionReader {
       }
     }
     return pieceEndingDetected;
+  }
+
+  /** The ending numbers a number attribute or an ending's text gives: "1, 2" or "1 + 2" or "1. 2. 3." or "1 - 3, 6". */
+  public static readEndingNumbers(value: string): number[] {
+    const numbers: number[] = [];
+    for (const part of value.split(/[,+]/)) {
+      const numberTexts: string[] = part.match(/\d+/g) ?? [];
+      if (numberTexts.length === 2 && part.includes("-")) {
+        for (let index: number = parseInt(numberTexts[0], 10); index <= parseInt(numberTexts[1], 10); index++) {
+          numbers.push(index);
+        }
+      } else {
+        for (const numberText of numberTexts) {
+          numbers.push(parseInt(numberText, 10));
+        }
+      }
+    }
+    return numbers;
   }
 
   public handleRepetitionInstructionsFromWordsOrSymbols(directionTypeNode: IXmlElement, relativeMeasurePosition: number): boolean {
