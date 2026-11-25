@@ -27,6 +27,8 @@ export class InstantaneousDynamicExpression extends AbstractExpression {
         InstantaneousDynamicExpression.dynamicToRelativeVolumeDict.setValue(DynamicEnum.sfz,    0.5);
         InstantaneousDynamicExpression.dynamicToRelativeVolumeDict.setValue(DynamicEnum.sffz,   0.5);
         InstantaneousDynamicExpression.dynamicToRelativeVolumeDict.setValue(DynamicEnum.fz,     0.5);
+        InstantaneousDynamicExpression.dynamicToRelativeVolumeDict.setValue(DynamicEnum.ffz,    0.5);
+        InstantaneousDynamicExpression.dynamicToRelativeVolumeDict.setValue(DynamicEnum.pf,      92.0 / 127.0);
         InstantaneousDynamicExpression.dynamicToRelativeVolumeDict.setValue(DynamicEnum.mp,      60 / 127.0);
         InstantaneousDynamicExpression.dynamicToRelativeVolumeDict.setValue(DynamicEnum.p,       28.0 / 127.0);
         InstantaneousDynamicExpression.dynamicToRelativeVolumeDict.setValue(DynamicEnum.pp,      12.0 / 127.0);
@@ -107,7 +109,7 @@ export class InstantaneousDynamicExpression extends AbstractExpression {
     private static listInstantaneousDynamics: string[] =  [
         "pppppp", "ppppp", "pppp", "ppp", "pp", "p",
         "ffffff", "fffff", "ffff", "fff", "ff", "f",
-        "mf", "mp", "sf", "sff", "sp", "spp", "fp", "rf", "rfz", "sfz", "sffz", "fz",
+        "mf", "mp", "sf", "sff", "sp", "spp", "fp", "rf", "rfz", "sfz", "sffz", "fz", "ffz", "pf",
     ];
 
     //public getInstantaneousDynamicSymbol(expressionSymbolEnum:DynamicExpressionSymbolEnum): FontInfo.MusicFontSymbol {
@@ -187,7 +189,11 @@ export enum DynamicEnum {
     sfz = 21,
     sffz = 22,
     fz = 23,
-    other = 24
+    other = 24,
+    // museflow: "ffz" (forzando, written as <other-dynamics>ffz</other-dynamics>: MusicXML has no element for it) and
+    // "pf" (<pf/>, poco forte) are dynamics. Added after "other" so every earlier value keeps its number.
+    ffz = 25,
+    pf = 26
 }
 
 InstantaneousDynamicExpression.staticConstructor();
